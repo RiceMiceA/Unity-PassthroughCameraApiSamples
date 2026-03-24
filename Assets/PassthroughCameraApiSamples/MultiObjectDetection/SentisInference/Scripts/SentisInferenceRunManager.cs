@@ -22,8 +22,8 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [SerializeField] private BackendType m_backend = BackendType.CPU;
         [SerializeField] private ModelAsset m_sentisModel;
         [SerializeField] private TextAsset m_labelsAsset;
-        [SerializeField, Range(0, 1)] private float m_iouThreshold = 0.6f;
-        [SerializeField, Range(0, 1)] private float m_scoreThreshold = 0.23f;
+        [SerializeField, Range(0, 1)] private float m_iouThreshold = 0.5f;
+        [SerializeField, Range(0, 1)] private float m_scoreThreshold = 0.25f;
 
         [Header("UI display references")]
         [SerializeField] private SentisInferenceUiManager m_uiInference;

@@ -1,0 +1,14 @@
+Bell Pepper
+Onion
+Apple
+Carrot
+Egg
+Tomato
+Broccoli
+Banana
+Cauliflower
+Courgette
+Eggplant
+Milk
+Pasta
+unknown
