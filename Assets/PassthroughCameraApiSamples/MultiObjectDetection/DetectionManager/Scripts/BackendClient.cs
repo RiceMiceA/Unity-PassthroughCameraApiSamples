@@ -16,7 +16,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 {
     public class BackendClient : MonoBehaviour
     {
-        [SerializeField] private string m_baseUrl = "http://192.168.1.100:8000";
+        [SerializeField] private string m_baseUrl = "http://192.168.4.28:8000";
         [SerializeField] private bool m_logRequests = true;
 
         // ── Shared JSON payload models ─────────────────────────────────────────
