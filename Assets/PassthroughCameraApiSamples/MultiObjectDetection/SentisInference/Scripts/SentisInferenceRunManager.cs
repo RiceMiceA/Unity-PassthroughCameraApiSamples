@@ -28,13 +28,17 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [Header("UI display references")]
         [SerializeField] private SentisInferenceUiManager m_uiInference;
 
+        [Header("Ingredient tracking")]
+        [SerializeField] private IngredientInventoryManager m_ingredientInventory;
+
         [Header("[Editor Only] Convert to Sentis")]
         public ModelAsset OnnxModel;
         [Space(40)]
 
         private Worker m_engine;
         private Vector2Int m_inputSize;
-        private readonly List<(int classId, Vector4 boundingBox)> m_detections = new List<(int classId, Vector4 boundingBox)>();
+        private string[] m_labels;
+        private readonly List<DetectionResult> m_detections = new List<DetectionResult>();
 
         private void Awake()
         {
@@ -47,6 +51,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         private IEnumerator Start()
         {
             m_uiInference.SetLabels(m_labelsAsset);
+            m_labels = m_labelsAsset.text.Split('\n');
 
             while (true)
             {
@@ -155,6 +160,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
             NonMaxSuppression(m_detections, boxes, classIDs, scores, m_iouThreshold, m_scoreThreshold);
 
+            // Update ingredient inventory with latest detections.
+            m_ingredientInventory?.UpdateCandidates(m_detections);
+
             // Checking if spatial anchor is tracked ensures bounding boxes are placed at correct world space positIons.
             if (!m_cameraAccess.IsPlaying || m_detectionManager.m_spatialAnchor == null || !m_detectionManager.m_spatialAnchor.IsTracked)
             {
@@ -165,7 +173,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             m_uiInference.DrawUIBoxes(m_detections, m_inputSize, cachedCameraPose);
         }
 
-        private static void NonMaxSuppression(List<(int classId, Vector4 boundingBox)> outDetections, Tensor<float> boxes, Tensor<int> classIDs, Tensor<float> scores, float iouThreshold, float scoreThreshold)
+        private void NonMaxSuppression(List<DetectionResult> outDetections, Tensor<float> boxes, Tensor<int> classIDs, Tensor<float> scores, float iouThreshold, float scoreThreshold)
         {
             outDetections.Clear();
 
@@ -197,8 +205,12 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
                 int idx = filteredIndices[i];
 
-                // Add this detection to results
-                outDetections.Add((classIDs[idx], GetBox(idx)));
+                // Add this detection to results (preserving score and class name).
+                int classId = classIDs[idx];
+                string className = (m_labels != null && classId < m_labels.Length)
+                    ? m_labels[classId].Trim()
+                    : classId.ToString();
+                outDetections.Add(new DetectionResult(classId, className, scoresArray[idx], GetBox(idx)));
 
                 // Suppress overlapping boxes regardless of class
                 for (int j = i + 1; j < filteredIndices.Count; j++)

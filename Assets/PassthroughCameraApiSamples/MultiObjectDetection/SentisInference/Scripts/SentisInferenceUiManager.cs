@@ -129,6 +129,18 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             }
         }
 
+        /// <summary>
+        /// Overload accepting <see cref="DetectionResult"/> list from the inference pipeline.
+        /// Converts to the internal tuple format and delegates to the main DrawUIBoxes method.
+        /// </summary>
+        public void DrawUIBoxes(List<DetectionResult> detections, Vector2 inputSize, Pose cameraPose)
+        {
+            var converted = new List<(int classId, Vector4 boundingBox)>(detections.Count);
+            foreach (var d in detections)
+                converted.Add((d.ClassId, d.BoundingBox));
+            DrawUIBoxes(converted, inputSize, cameraPose);
+        }
+
         private BoundingBoxData GetOrCreateBoundingBoxData(int classId, Vector3 worldSpaceCenter, Vector2 worldSpaceSize)
         {
             BoundingBoxData reusedBox = null;

@@ -18,6 +18,11 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [SerializeField] private DetectionSpawnMarkerAnim m_spawnMarker;
 
         [SerializeField] private SentisInferenceUiManager m_uiInference;
+
+        [Header("Ingredient integration")]
+        [SerializeField] private IngredientInventoryManager m_ingredientInventory;
+        [SerializeField] private BackendClient m_backendClient;
+
         [Space(10)]
         public UnityEvent<int> OnObjectsIdentified;
 
@@ -55,10 +60,22 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             }
             else
             {
-                // Press A button to spawn 3d markers
+                // Press A button to spawn 3d markers and confirm visible ingredients
                 if (InputManager.IsButtonADownOrPinchStarted())
                 {
                     SpawnCurrentDetectedObjects();
+
+                    // Collect all currently visible ingredient names and confirm them.
+                    var visibleIngredients = new List<string>();
+                    foreach (var box in m_uiInference.m_boxDrawn)
+                        if (!string.IsNullOrEmpty(box.ClassName))
+                            visibleIngredients.Add(box.ClassName);
+
+                    if (visibleIngredients.Count > 0)
+                    {
+                        m_ingredientInventory?.ConfirmVisibleIngredients(visibleIngredients);
+                        m_backendClient?.GenerateRecipe(m_ingredientInventory?.GetConfirmedIngredientNames());
+                    }
                 }
             }
 
@@ -196,6 +213,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             }
             m_spawnedEntities.Clear();
             OnObjectsIdentified?.Invoke(-1);
+
+            // Clear Quest-side ingredient inventory when markers are cleared.
+            m_ingredientInventory?.ClearAll();
         }
 
         private static void LogSpatialAnchor(string message, LogType logType = LogType.Log)
