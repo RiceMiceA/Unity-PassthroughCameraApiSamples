@@ -16,10 +16,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 {
     public class BackendClient : MonoBehaviour
     {
-        // [SerializeField] private string m_baseUrl = "http://192.168.4.28:8000";    // 508 E John
+        [SerializeField] private string m_baseUrl = "http://192.168.4.28:8000";    // 508 E John
         // [SerializeField] private string m_baseUrl = "http://192.168.197.86:8000";   // Triangle
         // [SerializeField] private string m_baseUrl = "http://10.193.0.17:8000";      // ECEB IllinoisNet
-        [SerializeField] private string m_baseUrl = "http://172.20.10.2:8000";      // Phone hotspot
+        // [SerializeField] private string m_baseUrl = "http://172.20.10.2:8000";      // Phone hotspot
         [SerializeField] private bool m_logRequests = true;
 
         // ── Shared JSON payload models ─────────────────────────────────────────

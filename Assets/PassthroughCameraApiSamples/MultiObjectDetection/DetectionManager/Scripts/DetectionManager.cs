@@ -22,11 +22,16 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [Header("Ingredient integration")]
         [SerializeField] private IngredientInventoryManager m_ingredientInventory;
         [SerializeField] private BackendClient m_backendClient;
+        [SerializeField] private RecipeGuidanceManager m_guidanceManager;
 
         [Space(10)]
         public UnityEvent<int> OnObjectsIdentified;
 
         private readonly List<DetectionSpawnMarkerAnim> m_spawnedEntities = new();
+
+        /// <summary>Read-only view of all currently spawned spatial markers.</summary>
+        public IReadOnlyList<DetectionSpawnMarkerAnim> SpawnedMarkers => m_spawnedEntities;
+
         private bool m_isStarted;
         internal OVRSpatialAnchor m_spatialAnchor;
         private bool m_isHeadsetTracking;
@@ -60,8 +65,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             }
             else
             {
-                // Press A button to spawn 3d markers and confirm visible ingredients
-                if (InputManager.IsButtonADownOrPinchStarted())
+                // Press A button to spawn 3d markers and confirm visible ingredients.
+                // Skip when RecipeGuidanceManager has taken over input for step confirmation.
+                if (InputManager.IsButtonADownOrPinchStarted() && !RecipeGuidanceManager.IsGuiding)
                 {
                     SpawnCurrentDetectedObjects();
 
@@ -79,10 +85,13 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 }
             }
 
-            // Press B button to clean all markers
+            // Press B button — when guiding, cancel guidance; when idle, clean markers
             if (InputManager.IsButtonBDownOrMiddleFingerPinchStarted())
             {
-                CleanMarkers();
+                if (RecipeGuidanceManager.IsGuiding)
+                    m_guidanceManager?.StopGuidance();
+                else
+                    CleanMarkers();
             }
         }
 
