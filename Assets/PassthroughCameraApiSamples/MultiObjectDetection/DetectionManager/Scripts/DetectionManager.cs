@@ -12,6 +12,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
     [MetaCodeSample("PassthroughCameraApiSamples-MultiObjectDetection")]
     public class DetectionManager : MonoBehaviour
     {
+        // ── UX Phase ────────────────────────────────────────────────────────
+        private enum QuestUxPhase { LiveScan, IngredientReview, RecipeGuidance }
+
         [SerializeField] private PassthroughCameraAccess m_cameraAccess;
 
         [Header("Placement configuration")]
@@ -24,6 +27,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [SerializeField] private BackendClient m_backendClient;
         [SerializeField] private RecipeGuidanceManager m_guidanceManager;
 
+        [Header("Review mode")]
+        [SerializeField] private SentisInferenceRunManager m_inferenceRunner;
+        [SerializeField] private MarkerReviewRaySelector m_markerReviewRaySelector;
+
         [Space(10)]
         public UnityEvent<int> OnObjectsIdentified;
 
@@ -35,6 +42,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         private bool m_isStarted;
         internal OVRSpatialAnchor m_spatialAnchor;
         private bool m_isHeadsetTracking;
+        private QuestUxPhase m_phase = QuestUxPhase.LiveScan;
+        // Used to detect the guiding true→false edge so we don't false-positive
+        // on the frame Y is pressed (before IsGuiding has been set to true).
+        private bool m_wasGuiding;
 
         private void Awake()
         {
@@ -57,41 +68,113 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         {
             if (!m_isStarted)
             {
-                // Manage the Initial Ui Menu
                 if (m_cameraAccess.IsPlaying)
-                {
                     m_isStarted = true;
-                }
+                return;
             }
-            else
+
+            // ── Return from guidance to LiveScan when guidance ends ──────────
+            // Only transition back once guidance has actually *started* (m_wasGuiding
+            // went true) and then stopped, to avoid the race where IsGuiding is still
+            // false for a frame or two after GenerateRecipe is called.
+            bool isGuiding = RecipeGuidanceManager.IsGuiding;
+            if (m_phase == QuestUxPhase.RecipeGuidance)
             {
-                // Press A button to spawn 3d markers and confirm visible ingredients.
-                // Skip when RecipeGuidanceManager has taken over input for step confirmation.
-                if (InputManager.IsButtonADownOrPinchStarted() && !RecipeGuidanceManager.IsGuiding)
+                if (isGuiding)
+                    m_wasGuiding = true;
+
+                if (m_wasGuiding && !isGuiding)
                 {
-                    SpawnCurrentDetectedObjects();
-
-                    // Collect all currently visible ingredient names and confirm them.
-                    var visibleIngredients = new List<string>();
-                    foreach (var box in m_uiInference.m_boxDrawn)
-                        if (!string.IsNullOrEmpty(box.ClassName))
-                            visibleIngredients.Add(box.ClassName);
-
-                    if (visibleIngredients.Count > 0)
-                    {
-                        m_ingredientInventory?.ConfirmVisibleIngredients(visibleIngredients);
-                        m_backendClient?.GenerateRecipe(m_ingredientInventory?.GetConfirmedIngredientNames());
-                    }
+                    m_wasGuiding = false;
+                    m_inferenceRunner?.SetInferenceEnabled(true);
+                    m_phase = QuestUxPhase.LiveScan;
                 }
             }
 
-            // Press B button — when guiding, cancel guidance; when idle, clean markers
-            if (InputManager.IsButtonBDownOrMiddleFingerPinchStarted())
+            bool pressedA = InputManager.IsButtonADownOrPinchStarted();
+            bool pressedB = InputManager.IsButtonBDownOrMiddleFingerPinchStarted();
+            bool pressedX = OVRInput.GetDown(OVRInput.RawButton.X);
+            bool pressedY = OVRInput.GetDown(OVRInput.RawButton.Y);
+
+            switch (m_phase)
             {
-                if (RecipeGuidanceManager.IsGuiding)
-                    m_guidanceManager?.StopGuidance();
-                else
-                    CleanMarkers();
+                // ── LiveScan ─────────────────────────────────────────────────
+                case QuestUxPhase.LiveScan:
+                {
+                    if (pressedA)
+                    {
+                        SpawnCurrentDetectedObjects();
+
+                        var visibleIngredients = new List<string>();
+                        foreach (var box in m_uiInference.m_boxDrawn)
+                            if (!string.IsNullOrEmpty(box.ClassName))
+                                visibleIngredients.Add(box.ClassName);
+
+                        if (visibleIngredients.Count > 0)
+                            m_ingredientInventory?.ConfirmVisibleIngredients(visibleIngredients);
+                    }
+
+                    if (pressedB)
+                    {
+                        CleanMarkers();
+                    }
+
+                    if (pressedX)
+                    {
+                        // Enter review mode: freeze inference, hide boxes, enable ray selector.
+                        m_inferenceRunner?.SetInferenceEnabled(false);
+                        m_uiInference?.ClearAllBoxes();
+                        m_markerReviewRaySelector?.SetActive(true);
+                        m_phase = QuestUxPhase.IngredientReview;
+                    }
+                    break;
+                }
+
+                // ── IngredientReview ─────────────────────────────────────────
+                case QuestUxPhase.IngredientReview:
+                {
+                    if (pressedB)
+                    {
+                        if (m_markerReviewRaySelector != null &&
+                            m_markerReviewRaySelector.TryDeleteHoveredMarker(out _))
+                        {
+                            m_ingredientInventory?.RebuildConfirmedFromMarkers(m_spawnedEntities);
+                        }
+                    }
+
+                    if (pressedX)
+                    {
+                        // Return to live scan.
+                        m_markerReviewRaySelector?.SetActive(false);
+                        m_inferenceRunner?.SetInferenceEnabled(true);
+                        m_phase = QuestUxPhase.LiveScan;
+                    }
+
+                    if (pressedY)
+                    {
+                        // Generate recipe and hand over to RecipeGuidanceManager.
+                        m_markerReviewRaySelector?.SetActive(false);
+                        var confirmed = m_ingredientInventory?.GetConfirmedIngredientNames();
+                        if (confirmed != null && confirmed.Count > 0)
+                        {
+                            m_backendClient?.PostConfirmedIngredients(new List<string>(confirmed));
+                            m_backendClient?.GenerateRecipe(confirmed);
+                        }
+                        m_phase = QuestUxPhase.RecipeGuidance;
+                    }
+                    break;
+                }
+
+                // ── RecipeGuidance ───────────────────────────────────────────
+                case QuestUxPhase.RecipeGuidance:
+                {
+                    // Input for step confirmation is handled by RecipeGuidanceManager.
+                    // B cancels guidance and the loop at the top of Update() will
+                    // restore LiveScan on the next frame.
+                    if (pressedB && RecipeGuidanceManager.IsGuiding)
+                        m_guidanceManager?.StopGuidance();
+                    break;
+                }
             }
         }
 
@@ -225,6 +308,19 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
             // Clear Quest-side ingredient inventory when markers are cleared.
             m_ingredientInventory?.ClearAll();
+        }
+
+        /// <summary>
+        /// Removes a single marker from the spawned list and destroys its GameObject.
+        /// Used by <see cref="MarkerReviewRaySelector"/> to delete a hovered marker.
+        /// </summary>
+        public bool RemoveMarker(DetectionSpawnMarkerAnim marker)
+        {
+            if (marker == null) return false;
+            bool removed = m_spawnedEntities.Remove(marker);
+            if (removed)
+                Destroy(marker.gameObject);
+            return removed;
         }
 
         private static void LogSpatialAnchor(string message, LogType logType = LogType.Log)

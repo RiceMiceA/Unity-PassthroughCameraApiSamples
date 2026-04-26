@@ -151,13 +151,45 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
         /// <summary>
         /// Called by DetectionManager when the user presses B / middle pinch to clear markers.
-        /// Clears all candidate and confirmed state.
+        /// Clears all candidate and confirmed state and notifies the backend.
         /// </summary>
         public void ClearAll()
         {
             m_candidates.Clear();
             m_confirmed.Clear();
             m_lastPostedCandidates.Clear();
+            m_backendClient?.PostCandidateIngredients(new List<string>());
+            m_backendClient?.PostConfirmedIngredients(new List<string>());
+        }
+
+        /// <summary>
+        /// Rebuilds the confirmed set from the markers currently present in the scene.
+        /// Call this after deleting a marker in review mode to keep the backend in sync.
+        /// </summary>
+        public void RebuildConfirmedFromMarkers(IReadOnlyList<DetectionSpawnMarkerAnim> markers)
+        {
+            m_confirmed.Clear();
+
+            float now = Time.time;
+            foreach (var marker in markers)
+            {
+                if (marker == null) continue;
+                string label = marker.GetYoloClassName()?.Trim().ToLower();
+                if (string.IsNullOrEmpty(label)) continue;
+
+                if (!m_confirmed.ContainsKey(label))
+                {
+                    m_confirmed[label] = new IngredientObservation
+                    {
+                        Name = label,
+                        BestScore = 1f,
+                        SeenCount = m_stabilityThreshold,
+                        LastSeenTime = now,
+                    };
+                }
+            }
+
+            m_backendClient?.PostConfirmedIngredients(new List<string>(m_confirmed.Keys));
         }
     }
 }

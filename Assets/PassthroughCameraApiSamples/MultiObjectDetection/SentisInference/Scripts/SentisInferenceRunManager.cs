@@ -40,6 +40,14 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         private string[] m_labels;
         private readonly List<DetectionResult> m_detections = new List<DetectionResult>();
 
+        private bool m_inferenceEnabled = true;
+        public bool InferenceEnabled => m_inferenceEnabled;
+
+        public void SetInferenceEnabled(bool enabled)
+        {
+            m_inferenceEnabled = enabled;
+        }
+
         private void Awake()
         {
             var model = ModelLoader.Load(m_sentisModel);
@@ -55,7 +63,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
             while (true)
             {
-                while (m_uiMenuManager.IsPaused)
+                while (m_uiMenuManager.IsPaused || !m_inferenceEnabled)
                 {
                     yield return null;
                 }

@@ -15,10 +15,16 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
         private Vector3 m_angles;
         private OVRCameraRig m_camera;
+        private Vector3 m_modelOriginalScale;
 
         private void Awake()
         {
             m_camera = FindFirstObjectByType<OVRCameraRig>();
+            m_modelOriginalScale = m_model != null ? m_model.localScale : Vector3.one;
+
+            // Ensure the selection collider is big enough to be comfortable to point at.
+            if (TryGetComponent<SphereCollider>(out var col))
+                col.radius = 0.16f;
         }
 
         private void LateUpdate()
@@ -54,7 +60,18 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
         public string GetYoloClassName()
         {
-            return m_textModel.text;
+            return m_textModel != null ? m_textModel.text : string.Empty;
+        }
+
+        /// <summary>
+        /// Visually highlight this marker when hovered by the review-mode ray selector.
+        /// Only scales the inner <c>m_model</c> visual — never the root — to avoid
+        /// world-space scale issues with OVRSpatialAnchor and the LookAt text billboard.
+        /// </summary>
+        public void SetHovered(bool hovered)
+        {
+            if (m_model == null) return;
+            m_model.localScale = hovered ? m_modelOriginalScale * 1.15f : m_modelOriginalScale;
         }
     }
 }

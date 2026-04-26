@@ -235,5 +235,18 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             }
             m_boxDrawn.Clear();
         }
+
+        /// <summary>
+        /// Immediately hides and pools all currently visible live detection boxes.
+        /// Call this when entering Ingredient Review mode.
+        /// </summary>
+        public void ClearAllBoxes()
+        {
+            for (int i = m_boxDrawn.Count - 1; i >= 0; i--)
+            {
+                ReturnToPool(m_boxDrawn[i]);
+                m_boxDrawn.RemoveAt(i);
+            }
+        }
     }
 }
