@@ -28,6 +28,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         {
             public string ClassName;
             public int ClassId;
+            public float Score;
             public RectTransform BoxRectTransform;
             public float lastUpdateTime;
         }
@@ -130,18 +131,87 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         }
 
         /// <summary>
-        /// Overload accepting <see cref="DetectionResult"/> list from the inference pipeline.
-        /// Converts to the internal tuple format and delegates to the main DrawUIBoxes method.
+        /// Primary overload: accepts <see cref="DetectionResult"/> list from the inference pipeline.
+        /// Preserves ClassName and Score all the way to the box label.
+        /// Label format: "{ClassName} {Score:0.00}\n[x,y,w,h]"
         /// </summary>
         public void DrawUIBoxes(List<DetectionResult> detections, Vector2 inputSize, Pose cameraPose)
         {
-            var converted = new List<(int classId, Vector4 boundingBox)>(detections.Count);
-            foreach (var d in detections)
-                converted.Add((d.ClassId, d.BoundingBox));
-            DrawUIBoxes(converted, inputSize, cameraPose);
+            Vector2 currentResolution = m_cameraAccess.CurrentResolution;
+
+            if (detections.Count == 0)
+            {
+                OnObjectsDetected?.Invoke(0);
+                return;
+            }
+
+            OnObjectsDetected?.Invoke(detections.Count);
+
+            for (var i = 0; i < detections.Count; i++)
+            {
+                var d = detections[i];
+                float x1 = d.BoundingBox.x;
+                float y1 = d.BoundingBox.y;
+                float x2 = d.BoundingBox.z;
+                float y2 = d.BoundingBox.w;
+                Rect rect = new Rect(x1, y1, x2 - x1, y2 - y1);
+
+                Vector2 normalizedCenter = rect.center / inputSize;
+
+                // Get 3D marker world position using Depth Raycast.
+                var ray = m_cameraAccess.ViewportPointToRay(
+                    new Vector2(normalizedCenter.x, 1.0f - normalizedCenter.y), cameraPose);
+                var worldPos = m_environmentRaycast.Raycast(ray);
+                if (!worldPos.HasValue)
+                {
+                    Debug.Log($"RaycastManager failed, ray:{ray}, cameraPose:{cameraPose}");
+                    continue;
+                }
+
+                var normRect = new Rect(
+                    rect.x / inputSize.x,
+                    1f - rect.yMax / inputSize.y,
+                    rect.width / inputSize.x,
+                    rect.height / inputSize.y
+                );
+
+                float distance = Vector3.Distance(cameraPose.position, worldPos.Value);
+                var worldSpaceCenter = m_cameraAccess.ViewportPointToRay(
+                    normRect.center, cameraPose).GetPoint(distance);
+                var normal = (worldSpaceCenter - cameraPose.position).normalized;
+
+                var plane = new Plane(normal, worldSpaceCenter);
+                var minRay = m_cameraAccess.ViewportPointToRay(normRect.min, cameraPose);
+                var maxRay = m_cameraAccess.ViewportPointToRay(normRect.max, cameraPose);
+                plane.Raycast(minRay, out float intersectionDistanceMin);
+                plane.Raycast(maxRay, out float intersectionDistanceMax);
+                var min = minRay.GetPoint(intersectionDistanceMin);
+                var max = maxRay.GetPoint(intersectionDistanceMax);
+
+                var topLeftLocal = Quaternion.Inverse(cameraPose.rotation) * (min - cameraPose.position);
+                var bottomRightLocal = Quaternion.Inverse(cameraPose.rotation) * (max - cameraPose.position);
+                var size = new Vector2(
+                    Mathf.Abs(bottomRightLocal.x - topLeftLocal.x),
+                    Mathf.Abs(bottomRightLocal.y - topLeftLocal.y));
+
+                var boxData = GetOrCreateBoundingBoxData(d.ClassId, worldSpaceCenter, size, d.Score);
+                var boxRectTransform = boxData.BoxRectTransform;
+
+                // Concise label: class name + confidence score (+ bbox for debug)
+                int bx = Mathf.RoundToInt(x1);
+                int by = Mathf.RoundToInt(y1);
+                int bw = Mathf.RoundToInt(x2 - x1);
+                int bh = Mathf.RoundToInt(y2 - y1);
+                boxRectTransform.GetComponentInChildren<Text>().text =
+                    $"{d.ClassName} {d.Score:0.00}\n[{bx},{by},{bw},{bh}]";
+
+                boxRectTransform.SetPositionAndRotation(worldSpaceCenter, Quaternion.LookRotation(normal));
+                boxRectTransform.sizeDelta = size;
+                boxData.lastUpdateTime = Time.time;
+            }
         }
 
-        private BoundingBoxData GetOrCreateBoundingBoxData(int classId, Vector3 worldSpaceCenter, Vector2 worldSpaceSize)
+        private BoundingBoxData GetOrCreateBoundingBoxData(int classId, Vector3 worldSpaceCenter, Vector2 worldSpaceSize, float score = 0f)
         {
             BoundingBoxData reusedBox = null;
             for (int i = m_boxDrawn.Count - 1; i >= 0; i--)
@@ -196,7 +266,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             // Create a new box
             var newData = GetBoxFromPoolOrCreate();
             newData.ClassId = classId;
-            newData.ClassName = m_labels[classId].Replace(" ", "_");
+            newData.Score = score;
+            newData.ClassName = m_labels != null && classId < m_labels.Length
+                ? m_labels[classId].Replace(" ", "_")
+                : classId.ToString();
             m_boxDrawn.Add(newData);
             return newData;
         }

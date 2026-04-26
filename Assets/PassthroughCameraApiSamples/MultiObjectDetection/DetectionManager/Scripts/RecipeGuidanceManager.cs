@@ -67,13 +67,18 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             if (!IsGuiding) return;
             if (CurrentStep == null) return;
 
-            // ── A / index-pinch → user confirms current step ───────────────────
+            // ── A / index-pinch → user confirms current step or triggers dispense ─
             if (InputManager.IsButtonADownOrPinchStarted())
             {
                 if (CurrentStep.completion_mode == "user_confirm" && m_waitingForCompletion)
                 {
                     Debug.Log("[RecipeGuidanceManager] User confirmed step.");
                     AdvanceStep();
+                }
+                else if (CurrentStep.completion_mode == "dispense_done" && m_waitingForCompletion)
+                {
+                    Debug.Log("[RecipeGuidanceManager] A pressed — requesting dispense from ESP32.");
+                    m_backendClient?.DispenseStep();
                 }
             }
         }

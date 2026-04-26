@@ -31,17 +31,38 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [Header("Ingredient tracking")]
         [SerializeField] private IngredientInventoryManager m_ingredientInventory;
 
+        [Header("Vision R&V HUD (optional)")]
+        [SerializeField] private VisionRvHudController m_rvHud;
+
         [Header("[Editor Only] Convert to Sentis")]
         public ModelAsset OnnxModel;
         [Space(40)]
+
+        // ── Detection cap (R&V requirement: <= 20 regions per frame) ───────────
+        private const int MAX_DETECTIONS = 20;
 
         private Worker m_engine;
         private Vector2Int m_inputSize;
         private string[] m_labels;
         private readonly List<DetectionResult> m_detections = new List<DetectionResult>();
 
+        // ── Telemetry ──────────────────────────────────────────────────────────
+        private int   m_frameId;
+        private float m_lastInferenceMs;
+        private float m_fps;
+        private float m_lastFrameStartTime = -1f;
+
         private bool m_inferenceEnabled = true;
         public bool InferenceEnabled => m_inferenceEnabled;
+
+        // ── Public telemetry accessors for external scripts ────────────────────
+        public int   FrameId        => m_frameId;
+        public float LastInferenceMs => m_lastInferenceMs;
+        public float Fps            => m_fps;
+        public int   DetectionCount => m_detections.Count;
+        public int   MaxDetections  => MAX_DETECTIONS;
+        public float ScoreThreshold => m_scoreThreshold;
+        public float IouThreshold   => m_iouThreshold;
 
         public void SetInferenceEnabled(bool enabled)
         {
@@ -109,6 +130,8 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 yield break;
             }
 
+            float inferenceStartTime = Time.realtimeSinceStartup;
+
             [DllImport("OVRPlugin", CallingConvention = CallingConvention.Cdecl)]
             static extern OVRPlugin.Result ovrp_GetNodePoseStateAtTime(double time, OVRPlugin.Node nodeId, out OVRPlugin.PoseStatef nodePoseState);
             if (!ovrp_GetNodePoseStateAtTime(OVRPlugin.GetTimeInSeconds(), OVRPlugin.Node.Head, out _).IsSuccess())
@@ -168,6 +191,22 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
             NonMaxSuppression(m_detections, boxes, classIDs, scores, m_iouThreshold, m_scoreThreshold);
 
+            // ── Telemetry ────────────────────────────────────────────────────
+            m_frameId++;
+            m_lastInferenceMs = (Time.realtimeSinceStartup - inferenceStartTime) * 1000f;
+            if (m_lastFrameStartTime > 0f)
+                m_fps = 1f / Mathf.Max(0.001f, Time.realtimeSinceStartup - m_lastFrameStartTime);
+            m_lastFrameStartTime = Time.realtimeSinceStartup;
+
+            // Push stats to the optional R&V HUD.
+            if (m_rvHud != null)
+            {
+                m_rvHud.SetInferenceStats(m_frameId, m_fps, m_lastInferenceMs,
+                                          m_detections.Count, MAX_DETECTIONS,
+                                          m_scoreThreshold, m_iouThreshold);
+                m_rvHud.SetDetections(m_detections);
+            }
+
             // Update ingredient inventory with latest detections.
             m_ingredientInventory?.UpdateCandidates(m_detections);
 
@@ -219,6 +258,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                     ? m_labels[classId].Trim()
                     : classId.ToString();
                 outDetections.Add(new DetectionResult(classId, className, scoresArray[idx], GetBox(idx)));
+
+                // Hard cap — R&V requirement: never exceed MAX_DETECTIONS.
+                if (outDetections.Count >= MAX_DETECTIONS)
+                    break;
 
                 // Suppress overlapping boxes regardless of class
                 for (int j = i + 1; j < filteredIndices.Count; j++)
