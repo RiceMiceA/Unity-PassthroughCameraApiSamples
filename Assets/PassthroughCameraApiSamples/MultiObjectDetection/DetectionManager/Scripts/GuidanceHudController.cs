@@ -31,6 +31,30 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [SerializeField] private Text m_timerText;
         [SerializeField] private Text m_progressLabel;   // "Step 2 / 5"
 
+        // ── Unity lifecycle ────────────────────────────────────────────────────
+
+        private void Awake()
+        {
+            // IMPORTANT: This component must be on an always-active parent GameObject.
+            // m_hudRoot should be the child HUD panel that starts disabled in the Inspector.
+            // If m_hudRoot is the same GameObject this script is on, disabling it prevents
+            // Awake from running and the HUD will never appear.
+            if (m_hudRoot == null)
+            {
+                Debug.LogError("[GuidanceHudController] m_hudRoot is not assigned! " +
+                               "Drag the HUD panel GameObject into the m_hudRoot field. " +
+                               "This script must live on an always-active parent, NOT on the HUD panel itself.");
+            }
+
+            // Warn on missing text fields so the developer knows what to wire.
+            if (m_stepText == null)
+                Debug.LogWarning("[GuidanceHudController] m_stepText is not assigned.");
+            if (m_progressLabel == null)
+                Debug.LogWarning("[GuidanceHudController] m_progressLabel is not assigned.");
+        }
+        // NOTE: No Start() Hide() call — the HUD panel is already disabled in the Inspector.
+        // ApplyStep → Show() will enable it when the first step arrives.
+
         // ── Public API ─────────────────────────────────────────────────────────
 
         /// <summary>Called once when a new step begins.</summary>
