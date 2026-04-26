@@ -14,7 +14,6 @@
 //   m_backendClient, m_sceneRegistry, m_cueRenderer, m_hudController (optional)
 
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace PassthroughCameraSamples.MultiObjectDetection
@@ -210,7 +209,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         /// <summary>Local countdown for wait steps.</summary>
         private IEnumerator WatchTimerDone(float seconds)
         {
-            float remaining = seconds > 0 ? seconds : 5f;
+            var remaining = seconds > 0 ? seconds : 5f;
             Debug.Log($"[RecipeGuidanceManager] Timer wait: {remaining}s");
             while (remaining > 0f)
             {

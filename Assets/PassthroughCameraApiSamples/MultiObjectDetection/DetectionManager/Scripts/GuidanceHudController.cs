@@ -66,9 +66,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             SetText(m_progressLabel, $"Step {step.step_index + 1} / {step.total_steps}");
 
             var hud = step.render_plan?.hud;
-            bool showSpice = hud?.show_spice ?? false;
-            bool showGrams = hud?.show_target_grams ?? false;
-            bool showTimer = hud?.show_timer ?? false;
+            var showSpice = hud?.show_spice ?? false;
+            var showGrams = hud?.show_target_grams ?? false;
+            var showTimer = hud?.show_timer ?? false;
 
             if (m_spiceText != null)
             {
@@ -100,9 +100,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             // Grams progress
             if (m_gramsText != null && m_gramsText.gameObject.activeSelf)
             {
-                float current = status.current_grams;
-                float target = status.target_grams;
-                string done = status.dispense_status == "done" ? " ✓" : string.Empty;
+                var current = status.current_grams;
+                var target = status.target_grams;
+                var done = status.dispense_status == "done" ? " ✓" : string.Empty;
                 m_gramsText.text = $"{current:F1} / {target:F1} g{done}";
             }
         }
@@ -134,7 +134,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
         private static string FormatTime(float seconds)
         {
-            int s = Mathf.Max(0, Mathf.RoundToInt(seconds));
+            var s = Mathf.Max(0, Mathf.RoundToInt(seconds));
             return s >= 60 ? $"{s / 60}:{s % 60:D2}" : $"{s}s";
         }
     }
