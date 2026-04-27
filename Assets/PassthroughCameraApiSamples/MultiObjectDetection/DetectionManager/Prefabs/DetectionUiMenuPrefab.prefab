@@ -173,8 +173,8 @@ MonoBehaviour:
     m_LineSpacing: 1
   m_Text: '-----------------------------------------------------------
 
-    <b>PCA
-    MULTI-OBJECT SAMPLE</b>
+    <b>UIUC ECE 445
+    AI-INTELLIGENT CULINARY DEVICE</b>
 
     -----------------------------------------------------------'
 --- !u!1 &538354901286188544
@@ -628,7 +628,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: This sample shows Yolo model running locally using Unity Inference Engine
+  m_Text: Real-time ingredient detection powered by on-device YOLO and LLM-driven
+    recipe planning via Unity Inference Engine.
     and Passthrough Camera API.
 --- !u!114 &3515746225673257104
 MonoBehaviour:
@@ -1106,8 +1107,8 @@ MonoBehaviour:
     m_LineSpacing: 1
   m_Text: '-----------------------------------------------------------
 
-    <b>PCA
-    MULTI-OBJECT SAMPLE</b>
+    <b>UIUC ECE 445
+    AI-INTELLIGENT CULINARY DEVICE</b>
 
     -----------------------------------------------------------'
 --- !u!1 &7539337319951356723
@@ -1345,8 +1346,8 @@ MonoBehaviour:
     m_LineSpacing: 1
   m_Text: '-----------------------------------------------------------
 
-    <b>PCA
-    MULTI-OBJECT SAMPLE</b>
+    <b>UIUC ECE 445
+    AI-INTELLIGENT CULINARY DEVICE</b>
 
     -----------------------------------------------------------'
 --- !u!1 &8722207748505512710
