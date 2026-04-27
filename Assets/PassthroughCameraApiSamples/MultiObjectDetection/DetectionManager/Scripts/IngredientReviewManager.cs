@@ -23,6 +23,13 @@ namespace PassthroughCameraSamples.MultiObjectDetection
     {
         [Header("Dependencies")]
         [SerializeField] private BackendClient m_backendClient;
+        [SerializeField] private DetectionManager m_detectionManager;
+
+        [Header("Spatial Cues")]
+        [Tooltip("Assign HighlightCuePrefab from the Prefabs folder.")]
+        [SerializeField] private GameObject m_highlightPrefab;
+        [Tooltip("Assign ArrowCuePrefab from the Prefabs folder.")]
+        [SerializeField] private GameObject m_arrowPrefab;
 
         [Header("HUD Root")]
         [SerializeField] private GameObject m_reviewRoot;  // Panel — starts disabled
@@ -45,6 +52,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         private Coroutine m_pollCoroutine;
         private bool m_generationRequested;
         private int m_expectedIndex = -1;  // set before navigation POST; guards against stale GET responses
+
+        // Active AR cue instances — destroyed and recreated each time the review index changes.
+        private GameObject m_activeHighlight;
+        private GameObject m_activeArrow;
 
         private void Awake()
         {
@@ -92,8 +103,66 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 m_pollCoroutine = null;
             }
 
+            ClearCues();
+
             if (m_reviewRoot != null)
                 m_reviewRoot.SetActive(false);
+        }
+
+        // ── Spatial cue helpers ────────────────────────────────────────────
+
+        private void ClearCues()
+        {
+            if (m_activeHighlight != null) { Destroy(m_activeHighlight); m_activeHighlight = null; }
+            if (m_activeArrow     != null) { Destroy(m_activeArrow);     m_activeArrow     = null; }
+        }
+
+        /// <summary>
+        /// Spawn a highlight + arrow on the spatial marker that corresponds to the
+        /// ingredient instance currently being weighed.
+        /// Matches by label then picks the Nth marker for that label (instance_index,
+        /// which is 1-based from the backend so we subtract 1 for the 0-based list walk).
+        /// </summary>
+        private void UpdateCues()
+        {
+            ClearCues();
+            if (m_current?.current == null) return;
+            if (m_detectionManager == null) return;
+
+            string targetLabel = m_current.current.label?.ToLower().Trim().Replace("_", " ");
+            // instance_index from backend is 1-based (egg_1, egg_2, …).
+            int targetOrdinal  = m_current.current.instance_index - 1;  // convert to 0-based
+
+            Transform markerTransform = null;
+            int matchCount = 0;
+            foreach (var marker in m_detectionManager.SpawnedMarkers)
+            {
+                if (marker == null) continue;
+                string markerLabel = marker.GetYoloClassName()?.ToLower().Trim().Replace("_", " ");
+                if (markerLabel != targetLabel) continue;
+                if (matchCount == targetOrdinal) { markerTransform = marker.transform; break; }
+                matchCount++;
+            }
+
+            if (markerTransform == null)
+            {
+                Debug.Log($"[IngredientReviewManager] No marker for '{targetLabel}' ordinal {targetOrdinal}.");
+                return;
+            }
+
+            if (m_highlightPrefab != null)
+            {
+                m_activeHighlight = Instantiate(m_highlightPrefab, markerTransform.position, Quaternion.identity);
+                var hlCtrl = m_activeHighlight.GetComponentInChildren<HighlightCueController>();
+                if (hlCtrl != null) { hlCtrl.SetTarget(markerTransform); hlCtrl.SetPulse(true); }
+            }
+
+            if (m_arrowPrefab != null)
+            {
+                m_activeArrow = Instantiate(m_arrowPrefab, markerTransform.position, Quaternion.identity);
+                var arrowCtrl = m_activeArrow.GetComponentInChildren<ArrowCueController>();
+                arrowCtrl?.SetTarget(markerTransform);
+            }
         }
 
         private IEnumerator PollLoop()
@@ -247,6 +316,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             SetText(m_ingredientText,  displayName);
             SetText(m_liveWeightText,  $"Live: {m_current.live_weight_g:F1} g");
             SetText(m_loggedText,      $"Logged: {labelDone} / {labelTotal}");
+
+            // Point the AR cues at the matching spatial marker.
+            UpdateCues();
         }
 
         private static void SetText(Text field, string value)

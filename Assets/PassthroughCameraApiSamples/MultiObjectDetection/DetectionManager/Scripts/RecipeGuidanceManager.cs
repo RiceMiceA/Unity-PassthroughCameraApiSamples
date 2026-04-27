@@ -200,6 +200,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             {
                 Debug.Log("[RecipeGuidanceManager] Recipe complete!");
                 IsGuiding = false;
+                // Hide the HUD panel and clear all cues once the complete step lands.
+                m_cueRenderer?.ClearCues();
+                m_hudController?.Hide();
             }
         }
 
