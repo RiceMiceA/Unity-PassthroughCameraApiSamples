@@ -3995,6 +3995,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 835978341}
     - target: {fileID: 6862377210428837506, guid: 68e21f60036e9451ea402a14699c8f8f, type: 3}
+      propertyPath: m_arrowPrefab
+      value: 
+      objectReference: {fileID: 1678391911}
+    - target: {fileID: 6862377210428837506, guid: 68e21f60036e9451ea402a14699c8f8f, type: 3}
       propertyPath: m_progressText
       value: 
       objectReference: {fileID: 358873291}
@@ -4010,6 +4014,14 @@ PrefabInstance:
       propertyPath: m_liveWeightText
       value: 
       objectReference: {fileID: 379969366}
+    - target: {fileID: 6862377210428837506, guid: 68e21f60036e9451ea402a14699c8f8f, type: 3}
+      propertyPath: m_highlightPrefab
+      value: 
+      objectReference: {fileID: 5035832358687906881}
+    - target: {fileID: 6862377210428837506, guid: 68e21f60036e9451ea402a14699c8f8f, type: 3}
+      propertyPath: m_detectionManager
+      value: 
+      objectReference: {fileID: 1542092273}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

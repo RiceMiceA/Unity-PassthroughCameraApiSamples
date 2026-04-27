@@ -122,6 +122,11 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
                     if (pressedX)
                     {
+                        // Rebuild confirmed from ALL spawned markers before entering review —
+                        // ConfirmVisibleIngredients only captures what was visible in the last
+                        // A-press frame, but markers accumulate across multiple A presses.
+                        m_ingredientInventory?.RebuildConfirmedFromMarkers(m_spawnedEntities);
+
                         // Enter review mode: freeze inference, hide boxes, enable ray selector.
                         m_inferenceRunner?.SetInferenceEnabled(false);
                         m_uiInference?.ClearAllBoxes();
