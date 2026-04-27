@@ -212,24 +212,35 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 ? m_current.current.label
                 : m_current.current.display_name;
 
-            // Per-label logged count (e.g. "Logged: 1 / 3" means 1 of 3 eggs weighed).
+            // Per-label logged count — use ingredient_summary from backend (uses is-not-None,
+            // which is reliable even when weight_g == 0.0 and JsonUtility maps null→0).
             string currentLabel = m_current.current.label;
             int labelTotal  = 0;
             int labelDone   = 0;
-            if (m_current.ingredients != null)
+            if (m_current.ingredient_summary != null)
+            {
+                var summary = m_current.ingredient_summary.Find(s => s.label == currentLabel);
+                if (summary != null)
+                {
+                    labelTotal = summary.count;
+                    labelDone  = summary.measured_count;
+                }
+            }
+            // Fall back to iterating ingredients list if summary is missing.
+            if (labelTotal == 0 && m_current.ingredients != null)
             {
                 foreach (var item in m_current.ingredients)
                 {
                     if (item.label != currentLabel) continue;
                     labelTotal++;
-                    if (item.weight_g > 0f) labelDone++;
+                    if (item.is_measured) labelDone++;
                 }
             }
-            // Fall back to instance_index / count_for_label from the current item itself.
+            // Final fallback to count_for_label from the current item itself.
             if (labelTotal == 0)
             {
                 labelTotal = Mathf.Max(1, m_current.current.count_for_label);
-                labelDone  = m_current.current.weight_g > 0f ? 1 : 0;
+                labelDone  = m_current.current.is_measured ? 1 : 0;
             }
 
             SetText(m_progressText,    $"{m_current.review_index + 1} / {m_current.total}");

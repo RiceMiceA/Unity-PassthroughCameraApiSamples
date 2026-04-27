@@ -27,8 +27,9 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         public int instance_index;
         public int count_for_label;
         // NOTE: Unity JsonUtility does not support nullable float.
-        // Treat weight_g <= 0 as unmeasured in UI (backend stores null for unweighed items).
+        // Use is_measured (set by backend) to distinguish null from 0g.
         public float weight_g;
+        public bool is_measured;
     }
 
     [Serializable]
