@@ -104,15 +104,11 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 {
                     if (pressedA)
                     {
+                        // Spawn a spatial marker for each currently visible detection.
+                        // Ingredients remain candidates until the user presses X to enter
+                        // marker-review mode, at which point RebuildConfirmedFromMarkers
+                        // promotes the full accumulated marker list to confirmed all at once.
                         SpawnCurrentDetectedObjects();
-
-                        var visibleIngredients = new List<string>();
-                        foreach (var box in m_uiInference.m_boxDrawn)
-                            if (!string.IsNullOrEmpty(box.ClassName))
-                                visibleIngredients.Add(box.ClassName);
-
-                        if (visibleIngredients.Count > 0)
-                            m_ingredientInventory?.ConfirmVisibleIngredients(visibleIngredients);
                     }
 
                     if (pressedB)
