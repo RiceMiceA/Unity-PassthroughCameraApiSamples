@@ -40,6 +40,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
         private readonly Dictionary<string, IngredientObservation> m_candidates = new();
         private readonly Dictionary<string, IngredientObservation> m_confirmed = new();
+        private readonly List<string> m_confirmedInstances = new();
 
         private float m_lastCandidatePost = 0f;
         private HashSet<string> m_lastPostedCandidates = new();
@@ -56,10 +57,10 @@ namespace PassthroughCameraSamples.MultiObjectDetection
             return result;
         }
 
-        /// <summary>Returns all confirmed ingredient names.</summary>
+        /// <summary>Returns all confirmed ingredient names (preserves duplicates for per-instance weighing).</summary>
         public IReadOnlyCollection<string> GetConfirmedIngredientNames()
         {
-            return new List<string>(m_confirmed.Keys);
+            return new List<string>(m_confirmedInstances);
         }
 
         /// <summary>
@@ -129,10 +130,17 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         public void ConfirmVisibleIngredients(IEnumerable<string> ingredientNames)
         {
             float now = Time.time;
+            m_confirmedInstances.Clear();
+
             foreach (var name in ingredientNames)
             {
-                string key = name.ToLower().Trim();
+                string key = name.ToLower().Trim().Replace("_", " ");
                 if (string.IsNullOrEmpty(key)) continue;
+
+                // Preserve duplicates for per-instance weighing.
+                m_confirmedInstances.Add(key);
+
+                // Maintain unique dictionary for candidate/legacy display.
                 if (!m_confirmed.ContainsKey(key))
                 {
                     m_candidates.TryGetValue(key, out var obs);
@@ -146,7 +154,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 }
             }
 
-            m_backendClient?.PostConfirmedIngredients(new List<string>(m_confirmed.Keys));
+            m_backendClient?.PostConfirmedIngredients(new List<string>(m_confirmedInstances));
         }
 
         /// <summary>
@@ -157,6 +165,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         {
             m_candidates.Clear();
             m_confirmed.Clear();
+            m_confirmedInstances.Clear();
             m_lastPostedCandidates.Clear();
             m_backendClient?.PostCandidateIngredients(new List<string>());
             m_backendClient?.PostConfirmedIngredients(new List<string>());
@@ -169,13 +178,17 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         public void RebuildConfirmedFromMarkers(IReadOnlyList<DetectionSpawnMarkerAnim> markers)
         {
             m_confirmed.Clear();
+            m_confirmedInstances.Clear();
 
             float now = Time.time;
             foreach (var marker in markers)
             {
                 if (marker == null) continue;
-                string label = marker.GetYoloClassName()?.Trim().ToLower();
+                string label = marker.GetYoloClassName()?.Trim().ToLower().Replace("_", " ");
                 if (string.IsNullOrEmpty(label)) continue;
+
+                // One instance entry per marker (preserves duplicates).
+                m_confirmedInstances.Add(label);
 
                 if (!m_confirmed.ContainsKey(label))
                 {
@@ -189,7 +202,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                 }
             }
 
-            m_backendClient?.PostConfirmedIngredients(new List<string>(m_confirmed.Keys));
+            m_backendClient?.PostConfirmedIngredients(new List<string>(m_confirmedInstances));
         }
     }
 }

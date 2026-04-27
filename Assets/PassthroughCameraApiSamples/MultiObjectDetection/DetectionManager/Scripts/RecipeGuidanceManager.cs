@@ -65,6 +65,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         private void Update()
         {
             if (!IsGuiding) return;
+            if (IngredientReviewManager.IsReviewing) return;
             if (CurrentStep == null) return;
 
             // ── A / index-pinch → user confirms current step or triggers dispense ─
@@ -80,6 +81,15 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                     Debug.Log("[RecipeGuidanceManager] A pressed — requesting dispense from ESP32.");
                     m_backendClient?.DispenseStep();
                 }
+            }
+
+            // ── X → skip / manually advance a dispense step without ESP32 ────
+            if (OVRInput.GetDown(OVRInput.Button.Three)
+                && CurrentStep.completion_mode == "dispense_done"
+                && m_waitingForCompletion)
+            {
+                Debug.Log("[RecipeGuidanceManager] X pressed — skipping dispense, advancing step.");
+                AdvanceStep();
             }
         }
 

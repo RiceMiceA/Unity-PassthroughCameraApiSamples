@@ -30,6 +30,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [Header("Review mode")]
         [SerializeField] private SentisInferenceRunManager m_inferenceRunner;
         [SerializeField] private MarkerReviewRaySelector m_markerReviewRaySelector;
+        [SerializeField] private IngredientReviewManager m_ingredientReviewManager;
 
         [Space(10)]
         public UnityEvent<int> OnObjectsIdentified;
@@ -152,13 +153,14 @@ namespace PassthroughCameraSamples.MultiObjectDetection
 
                     if (pressedY)
                     {
-                        // Generate recipe and hand over to RecipeGuidanceManager.
+                        // Begin ingredient weight review. IngredientReviewManager will
+                        // call GenerateRecipeFromConfirmed when all weights are logged.
                         m_markerReviewRaySelector?.SetActive(false);
                         var confirmed = m_ingredientInventory?.GetConfirmedIngredientNames();
                         if (confirmed != null && confirmed.Count > 0)
                         {
                             m_backendClient?.PostConfirmedIngredients(new List<string>(confirmed));
-                            m_backendClient?.GenerateRecipe(confirmed);
+                            m_ingredientReviewManager?.BeginReview();
                         }
                         m_phase = QuestUxPhase.RecipeGuidance;
                     }

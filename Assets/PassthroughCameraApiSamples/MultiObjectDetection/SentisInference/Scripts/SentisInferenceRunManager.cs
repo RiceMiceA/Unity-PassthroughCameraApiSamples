@@ -34,6 +34,12 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         [Header("Vision R&V HUD (optional)")]
         [SerializeField] private VisionRvHudController m_rvHud;
 
+        [Header("Backend reporting")]
+        [Tooltip("BackendClient used to POST /vision_frame for dashboard R&V logging.")]
+        [SerializeField] private BackendClient m_backendClient;
+        [Tooltip("Seconds between /vision_frame POSTs.  1.0 = 1 Hz, reduces bandwidth.")]
+        [SerializeField, Range(0.1f, 5f)] private float m_visionFramePostInterval = 1.0f;
+
         [Header("[Editor Only] Convert to Sentis")]
         public ModelAsset OnnxModel;
         [Space(40)]
@@ -51,6 +57,7 @@ namespace PassthroughCameraSamples.MultiObjectDetection
         private float m_lastInferenceMs;
         private float m_fps;
         private float m_lastFrameStartTime = -1f;
+        private float m_visionFramePostTimer = 0f;  // counts up; posts when >= interval
 
         private bool m_inferenceEnabled = true;
         public bool InferenceEnabled => m_inferenceEnabled;
@@ -205,6 +212,15 @@ namespace PassthroughCameraSamples.MultiObjectDetection
                                           m_detections.Count, MAX_DETECTIONS,
                                           m_scoreThreshold, m_iouThreshold);
                 m_rvHud.SetDetections(m_detections);
+            }
+
+            // Throttled POST to /vision_frame so the web dashboard stays live.
+            m_visionFramePostTimer += Time.deltaTime;
+            if (m_backendClient != null && m_visionFramePostTimer >= m_visionFramePostInterval)
+            {
+                m_visionFramePostTimer = 0f;
+                m_backendClient.PostVisionFrame(m_detections, m_frameId, m_fps, m_lastInferenceMs);
+                m_backendClient.PostRvEvent("vision_frame");
             }
 
             // Update ingredient inventory with latest detections.
